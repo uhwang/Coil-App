@@ -1,5 +1,5 @@
 streamlit
-numpy
+numpy>=2.0.0
 matplotlib==3.8.4
 coil-geom
 scipy==1.11.4
