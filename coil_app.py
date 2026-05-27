@@ -223,7 +223,8 @@ with tab1:
         ax1.set_ylabel(f"Y ({ls})")
         ax1.grid(True)
         ax1.set_aspect('equal')
-        st.pyplot(fig1, use_container_width=False)
+        #st.pyplot(fig1, use_container_width=False)
+        st.pyplot(fig1, width="content")
         plt.rcParams.update(plt.rcParamsDefault)  # 전역 설정 복원
 
         # ── 아래: Full Coil ───────────────────────────────────
@@ -240,7 +241,8 @@ with tab1:
         ax2.set_ylabel(f"Y ({ls})")
         ax2.grid(True)
         ax2.set_aspect('equal')
-        st.pyplot(fig2, use_container_width=True)
+        #st.pyplot(fig2, use_container_width=True)
+        st.pyplot(fig2, width="stretch")
 
 
 # =========================================================================
@@ -315,7 +317,8 @@ with tab2:
         ax_main.set_aspect('equal')
         ax_main.grid(True, linestyle=':', alpha=0.3)
         fig_main.subplots_adjust(left=0.06, right=0.98, top=0.95, bottom=0.22)
-        st.pyplot(fig_main, use_container_width=True)
+        #st.pyplot(fig_main, use_container_width=True)
+        st.pyplot(fig_main, width="stretch")
 
         st.divider()
 
