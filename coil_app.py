@@ -258,8 +258,6 @@ with tab1:
 
         st.pyplot(fig, width="stretch")
 
-        st.pyplot(fig, width="stretch")
-
         # ── 형상 다운로드 ─────────────────────────────
         st.subheader("Download Geometry")
         dl_col1, dl_col2, dl_col3 = st.columns(3)
