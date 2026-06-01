@@ -272,7 +272,7 @@ with tab1:
         with fmt_col:
             dl_fmt = st.selectbox("Format", fmt_options, key="plot_fmt")
         with dpi_col:
-            dl_dpi = st.slider("DPI", 72, 600, 150, 10, key="plot_dpi")
+            dl_dpi = st.slider("DPI", 100, 600, 150, 10, key="plot_dpi")
         mime_map = {
             "png": "image/png",
             "pdf": "application/pdf",
