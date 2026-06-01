@@ -275,7 +275,7 @@ with tab1:
         st.subheader("Download Plots")
         #dl_fmt = st.selectbox("Format", fmt_options, key="plot_fmt")
         # 수정 - 왼쪽 좁은 컬럼에만 배치
-        fmt_col, _ = st.columns([1, 3])
+        fmt_col, dpi_col, _ = st.columns([1, 1, 2])
         with fmt_col:
             dl_fmt = st.selectbox("Format", fmt_options, key="plot_fmt")
         with dpi_col:
