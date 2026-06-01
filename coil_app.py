@@ -66,28 +66,42 @@ def analyze_magnetic_field(xx, yy, current=1.0, grid_res=60, z_height=0.1):
 # =========================================================================
 class AdvancedCoilSimulator:
 
-    def generate_geometry(self, coil_t, radius, axlen, bxlen, r_dist, p_dist, ncoil, curv_sim, shap_sim):
-
+    # AdvancedCoilSimulator.generate_geometry 시그니처 수정
+    def generate_geometry(self, coil_t, 
+                                radius, 
+                                axlen, 
+                                bxlen, 
+                                r_dist, 
+                                p_dist, 
+                                ncoil, 
+                                curv_sim, 
+                                shap_sim, 
+                                npnt, 
+                                npnt_sub):
+    
         if coil_t == cg.coil_util._coil_type_circle:
             coil = cg.CircleCoil(r=radius, r_dist=r_dist, p_dist=p_dist, ncoil=ncoil)
-
+    
         elif coil_t == cg.coil_util._coil_type_ellipse:
             coil = cg.EllipseCoil(axlen=axlen, bxlen=bxlen, r_dist=r_dist, p_dist=p_dist, ncoil=ncoil)
-
+    
         elif coil_t == cg.coil_util._coil_type_ellipse_curvature:
             coil = cg.EllipseCoilCurvature(
                 axlen=axlen, bxlen=bxlen,
                 r_dist=r_dist, p_dist=p_dist,
                 ncoil=ncoil, target=curv_sim
             )
-
+    
         elif coil_t == cg.coil_util._coil_type_ellipse_shape:
             coil = cg.EllipseCoilShape(
                 axlen=axlen, bxlen=bxlen,
                 r_dist=r_dist, p_dist=p_dist,
                 ncoil=ncoil, target=shap_sim
             )
-
+    
+        # set_param으로 포인트 수 설정
+        coil.set_param(npnt=npnt, npnt_sub=npnt_sub)
+    
         return coil
 
 
@@ -170,12 +184,20 @@ with tab1:
             p_dist,
             ncoil,
             curv_sim,
-            shap_sim
+            shap_sim,
+            npnt,
+            npnt_sub
         )
 
     with main_col_right:
 
         st.subheader("Geometry Preview")
+        # 플롯 바로 위에 포인트 슬라이더
+        pnt_col1, pnt_col2, _ = st.columns([1, 1, 2])
+        with pnt_col1:
+            npnt = st.slider("Main Points", 10, 500, 50, 10, key="npnt_slider")
+        with pnt_col2:
+            npnt_sub = st.slider("Sub Points", 10, 200, 25, 5, key="npnt_sub_slider")
 
         # 수정 - 두 개의 figure
         fig1, ax1 = plt.subplots(figsize=(5, 5))
@@ -186,7 +208,7 @@ with tab1:
         else:
             ax_len, bx_len = coil.axlen, coil.bxlen
 
-        pnt = np.linspace(0, pi2, 50)
+        pnt = np.linspace(0, pi2, npnt)
 
         x1 = coil.c1x + ax_len * np.cos(pnt)
         y1 = coil.c1y + bx_len * np.sin(pnt)
@@ -243,9 +265,7 @@ with tab1:
         ax1.grid(True)
         ax1.set_aspect('equal')
 
-        cc = coil.create_geom()
-        xx, yy = cc.x, cc.y
-
+        xx, yy = coil.get_geom()
         st.session_state["coil_x"] = xx
         st.session_state["coil_y"] = yy
 
