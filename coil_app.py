@@ -278,7 +278,8 @@ with tab1:
         fmt_col, _ = st.columns([1, 3])
         with fmt_col:
             dl_fmt = st.selectbox("Format", fmt_options, key="plot_fmt")
-        
+        with dpi_col:
+            dl_dpi = st.slider("DPI", 72, 600, 150, 72, key="plot_dpi")
         mime_map = {
             "png": "image/png",
             "pdf": "application/pdf",
@@ -295,7 +296,7 @@ with tab1:
 
         with plot_col1:
             buf1 = io.BytesIO()
-            fig1.savefig(buf1, format=dl_fmt, dpi=150, bbox_inches="tight")
+            fig1.savefig(buf1, format=dl_fmt, dpi=dl_dpi, bbox_inches="tight")
             buf1.seek(0)
             st.download_button(
                 f"⬇️ Base Unit ({dl_fmt.upper()})",
