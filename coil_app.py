@@ -177,11 +177,16 @@ with tab1:
 
         st.subheader("Geometry Preview")
 
+        '''
         fig, (ax1, ax2) = plt.subplots(
             1, 2,
             figsize=(14, 5),
             gridspec_kw={'width_ratios': [1, 2]}
         )
+        '''
+        # 수정 - 두 개의 figure
+        fig1, ax1 = plt.subplots(figsize=(5, 5))
+        fig2, ax2 = plt.subplots(figsize=(9, 5))
 
         if coil_type == cg.coil_util._coil_type_circle:
             ax_len, bx_len = coil.r, coil.r
@@ -256,8 +261,55 @@ with tab1:
         ax2.grid(True)
         ax2.set_aspect('equal')
 
-        st.pyplot(fig, width="stretch")
+        #st.pyplot(fig, width="stretch")
+        # 수정
+        col_fig1, col_fig2 = st.columns([1, 2])
+        with col_fig1:
+            st.pyplot(fig1, use_container_width=True)
+        with col_fig2:
+            st.pyplot(fig2, use_container_width=True)
 
+        # matplotlib 지원 포맷 전체
+        fmt_options = ["png", "pdf", "svg", "eps", "ps", "jpeg", "tiff", "webp"]
+        
+        st.subheader("Download Plots")
+        dl_fmt = st.selectbox("Format", fmt_options, key="plot_fmt")
+        mime_map = {
+            "png": "image/png",
+            "pdf": "application/pdf",
+            "svg": "image/svg+xml",
+            "eps": "application/postscript",
+            "ps":  "application/postscript",
+            "jpeg": "image/jpeg",
+            "tiff": "image/tiff",
+            "webp": "image/webp",
+        }
+        mime = mime_map.get(dl_fmt, "application/octet-stream")
+
+        plot_col1, plot_col2 = st.columns(2)
+
+        with plot_col1:
+            buf1 = io.BytesIO()
+            fig1.savefig(buf1, format=dl_fmt, dpi=150, bbox_inches="tight")
+            buf1.seek(0)
+            st.download_button(
+                f"⬇️ Base Unit ({dl_fmt.upper()})",
+                buf1,
+                file_name=f"base_unit.{dl_fmt}",
+                mime=mime
+            )
+
+        with plot_col2:
+            buf2 = io.BytesIO()
+            fig2.savefig(buf2, format=dl_fmt, dpi=150, bbox_inches="tight")
+            buf2.seek(0)
+            st.download_button(
+                f"⬇️ Full Coil ({dl_fmt.upper()})",
+                buf2,
+                file_name=f"full_coil.{dl_fmt}",
+                mime=mime
+            )
+            
         # ── 형상 다운로드 ─────────────────────────────
         st.subheader("Download Geometry")
         dl_col1, dl_col2, dl_col3 = st.columns(3)
