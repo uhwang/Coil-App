@@ -177,7 +177,6 @@ with tab1:
 
         st.subheader("Geometry Preview")
 
-        '''
         # 수정 - 두 개의 figure
         fig1, ax1 = plt.subplots(figsize=(5, 5))
         fig2, ax2 = plt.subplots(figsize=(9, 5))
