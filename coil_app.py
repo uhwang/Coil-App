@@ -273,7 +273,12 @@ with tab1:
         fmt_options = ["png", "pdf", "svg", "eps", "ps", "jpeg", "tiff", "webp"]
         
         st.subheader("Download Plots")
-        dl_fmt = st.selectbox("Format", fmt_options, key="plot_fmt")
+        #dl_fmt = st.selectbox("Format", fmt_options, key="plot_fmt")
+        # 수정 - 왼쪽 좁은 컬럼에만 배치
+        fmt_col, _ = st.columns([1, 3])
+        with fmt_col:
+            dl_fmt = st.selectbox("Format", fmt_options, key="plot_fmt")
+        
         mime_map = {
             "png": "image/png",
             "pdf": "application/pdf",
