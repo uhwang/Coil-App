@@ -178,12 +178,6 @@ with tab1:
         st.subheader("Geometry Preview")
 
         '''
-        fig, (ax1, ax2) = plt.subplots(
-            1, 2,
-            figsize=(14, 5),
-            gridspec_kw={'width_ratios': [1, 2]}
-        )
-        '''
         # 수정 - 두 개의 figure
         fig1, ax1 = plt.subplots(figsize=(5, 5))
         fig2, ax2 = plt.subplots(figsize=(9, 5))
