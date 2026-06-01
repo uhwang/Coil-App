@@ -198,9 +198,9 @@ with tab1:
         # 플롯 바로 위에 포인트 슬라이더
         pnt_col1, pnt_col2, _ = st.columns([1, 1, 2])
         with pnt_col1:
-            npnt = st.slider("Main Points", 10, 500, 50, 10, key="npnt_slider")
+            npnt = st.slider("Main Points", 10, 500, npnt, 10, key="npnt_slider")
         with pnt_col2:
-            npnt_sub = st.slider("Sub Points", 10, 200, 25, 5, key="npnt_sub_slider")
+            npnt_sub = st.slider("Sub Points", 10, 200, npnt_sub, 5, key="npnt_sub_slider")
 
         # 수정 - 두 개의 figure
         fig1, ax1 = plt.subplots(figsize=(5, 5))
@@ -268,9 +268,9 @@ with tab1:
         ax1.grid(True)
         ax1.set_aspect('equal')
 
-        xx, yy = coil.get_geom()
-        st.session_state["coil_x"] = xx
-        st.session_state["coil_y"] = yy
+        co = coil.create_geom()
+        st.session_state["coil_x"] = co.x
+        st.session_state["coil_y"] = co.y
 
         ax2.plot(xx, yy, 'r-')
         ax2.set_title(f"Full Coil (Turns: {ncoil})")
