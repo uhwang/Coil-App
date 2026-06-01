@@ -269,8 +269,9 @@ with tab1:
         ax1.set_aspect('equal')
 
         co = coil.create_geom()
-        st.session_state["coil_x"] = co.x
-        st.session_state["coil_y"] = co.y
+        xx, yy = co.x, co.y
+        st.session_state["coil_x"] = xx
+        st.session_state["coil_y"] = yy
 
         ax2.plot(xx, yy, 'r-')
         ax2.set_title(f"Full Coil (Turns: {ncoil})")
