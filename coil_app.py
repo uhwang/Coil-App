@@ -133,8 +133,11 @@ if "coil_y" not in st.session_state:
 with tab1:
 
     st.header("Geometry Parameter Tuning")
-
     st.write("Design coil geometry using the control panel below.")
+
+    # main_col_left, main_col_right 선언 전에
+    npnt = 50
+    npnt_sub = 25
 
     main_col_left, main_col_right = st.columns([1, 4])
 
@@ -195,9 +198,9 @@ with tab1:
         # 플롯 바로 위에 포인트 슬라이더
         pnt_col1, pnt_col2, _ = st.columns([1, 1, 2])
         with pnt_col1:
-            npnt = st.slider("Main Points", 10, 500, 50, 10, key="npnt_slider")
+            npnt = st.slider("Main Points", 10, 500, npnt, 10, key="npnt_slider")
         with pnt_col2:
-            npnt_sub = st.slider("Sub Points", 10, 200, 25, 5, key="npnt_sub_slider")
+            npnt_sub = st.slider("Sub Points", 10, 200, npnt_sub, 5, key="npnt_sub_slider")
 
         # 수정 - 두 개의 figure
         fig1, ax1 = plt.subplots(figsize=(5, 5))
