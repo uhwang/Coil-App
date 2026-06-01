@@ -80,27 +80,44 @@ class AdvancedCoilSimulator:
                                 npnt_sub):
     
         if coil_t == cg.coil_util._coil_type_circle:
-            coil = cg.CircleCoil(r=radius, r_dist=r_dist, p_dist=p_dist, ncoil=ncoil)
+            coil = cg.CircleCoil(r=radius, 
+                                 r_dist=r_dist, 
+                                 p_dist=p_dist, 
+                                 ncoil=ncoil,
+                                 npnt=npnt,
+                                 npnt_sub=npnt_sub)
     
         elif coil_t == cg.coil_util._coil_type_ellipse:
-            coil = cg.EllipseCoil(axlen=axlen, bxlen=bxlen, r_dist=r_dist, p_dist=p_dist, ncoil=ncoil)
+            coil = cg.EllipseCoil(axlen=axlen, 
+                                  bxlen=bxlen, 
+                                  r_dist=r_dist, 
+                                  p_dist=p_dist, 
+                                  ncoil=ncoil,
+                                  npnt=npnt,
+                                  npnt_sub=npnt_sub)
     
         elif coil_t == cg.coil_util._coil_type_ellipse_curvature:
             coil = cg.EllipseCoilCurvature(
-                axlen=axlen, bxlen=bxlen,
-                r_dist=r_dist, p_dist=p_dist,
-                ncoil=ncoil, target=curv_sim
+                                 axlen=axlen, 
+                                 bxlen=bxlen,
+                                 r_dist=r_dist, 
+                                 p_dist=p_dist,
+                                 ncoil=ncoil, 
+                                 target=curv_sim,
+                                 npnt=npnt,
+                                 npnt_sub=npnt_sub
             )
     
         elif coil_t == cg.coil_util._coil_type_ellipse_shape:
             coil = cg.EllipseCoilShape(
-                axlen=axlen, bxlen=bxlen,
-                r_dist=r_dist, p_dist=p_dist,
-                ncoil=ncoil, target=shap_sim
+                                axlen=axlen, bxlen=bxlen,
+                                r_dist=r_dist, 
+                                p_dist=p_dist,
+                                ncoil=ncoil, 
+                                target=shap_sim,
+                                npnt=npnt,
+                                npnt_sub=npnt_sub
             )
-    
-        # set_param으로 포인트 수 설정
-        coil.set_param(npnt=npnt, npnt_sub=npnt_sub)
     
         return coil
 
