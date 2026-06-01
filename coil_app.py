@@ -8,102 +8,107 @@ import coil_geom as cg
 pi1 = np.pi
 pi2 = np.pi * 2
 
-# =========================================================================
-# 단위 정의
-# =========================================================================
-LENGTH_UNITS = {
-    "mm (밀리미터)": {"scale": 1.0,         "to_m": 1e-3,   "symbol": "mm"},
-    "cm (센티미터)": {"scale": 0.1,         "to_m": 1e-2,   "symbol": "cm"},
-    "m  (미터)":     {"scale": 1e-3,        "to_m": 1.0,    "symbol": "m"},
-    "µm (마이크로)": {"scale": 1e3,         "to_m": 1e-6,   "symbol": "µm"},
-    "in (인치)":     {"scale": 1.0/25.4,    "to_m": 0.0254, "symbol": "in"},
-}
-
-BFIELD_UNITS = {
-    "µT (마이크로테슬라)": 1e6,
-    "mT (밀리테슬라)":     1e3,
-    "T  (테슬라)":         1e0,
-    "G  (가우스)":         1e4,
-}
-
 
 # =========================================================================
-# 1. Electromagnetic Solver (Biot–Savart)
+# 1. Electromagnetic Solver (Biot–Savart Fast Numerical Integration)
 # =========================================================================
-def analyze_magnetic_field(xx_mm, yy_mm, current=1.0, grid_res=60, z_height_mm=0.1):
+def analyze_magnetic_field(xx, yy, current=1.0, grid_res=60, z_height=0.1):
+
     """
-    입력: xx_mm, yy_mm, z_height_mm (모두 mm)
-    반환: X, Y (mm 격자), Bx, By, Bz, B_mag (Tesla)
+    Computes 3D magnetic field using vectorized Biot–Savart integration.
     """
+
     mu_0 = 4 * np.pi * 1e-7
 
-    x_margin = 0.25 * (np.max(xx_mm) - np.min(xx_mm)) if len(xx_mm) > 0 else 1.0
-    y_margin = 0.25 * (np.max(yy_mm) - np.min(yy_mm)) if len(yy_mm) > 0 else 1.0
+    x_margin = 0.25 * (np.max(xx) - np.min(xx)) if len(xx) > 0 else 1.0
+    y_margin = 0.25 * (np.max(yy) - np.min(yy)) if len(yy) > 0 else 1.0
 
-    x_range = np.linspace(np.min(xx_mm) - x_margin, np.max(xx_mm) + x_margin, grid_res)
-    y_range = np.linspace(np.min(yy_mm) - y_margin, np.max(yy_mm) + y_margin, grid_res)
-    X, Y = np.meshgrid(x_range, y_range)   # mm
-
-    X_m = X * 1e-3
-    Y_m = Y * 1e-3
-    rz  = z_height_mm * 1e-3
+    x_range = np.linspace(np.min(xx) - x_margin, np.max(xx) + x_margin, grid_res)
+    y_range = np.linspace(np.min(yy) - y_margin, np.max(yy) + y_margin, grid_res)
+    X, Y = np.meshgrid(x_range, y_range)
 
     Bx = np.zeros_like(X)
     By = np.zeros_like(Y)
     Bz = np.zeros_like(X)
 
-    for i in range(len(xx_mm) - 1):
-        xs = (xx_mm[i] + xx_mm[i+1]) / 2.0 * 1e-3
-        ys = (yy_mm[i] + yy_mm[i+1]) / 2.0 * 1e-3
-        dx = (xx_mm[i+1] - xx_mm[i]) * 1e-3
-        dy = (yy_mm[i+1] - yy_mm[i]) * 1e-3
+    for i in range(len(xx) - 1):
 
-        rx = X_m - xs
-        ry = Y_m - ys
+        xs = (xx[i] + xx[i + 1]) / 2.0
+        ys = (yy[i] + yy[i + 1]) / 2.0
+
+        dx = xx[i + 1] - xx[i]
+        dy = yy[i + 1] - yy[i]
+
+        rx = X - xs
+        ry = Y - ys
+        rz = z_height
+
         r_mag = np.sqrt(rx**2 + ry**2 + rz**2)
-        r_mag = np.where(r_mag < 1e-12, 1e-12, r_mag)
+        r_mag = np.where(r_mag < 1e-9, 1e-9, r_mag)
 
-        factor = (mu_0 * current) / (4 * np.pi * r_mag**3)
-        Bx += (dy * rz)          * factor
-        By += (-dx * rz)         * factor
-        Bz += (dx * ry - dy * rx) * factor
+        cx = dy * rz
+        cy = -dx * rz
+        cz = dx * ry - dy * rx
 
-    return X, Y, Bx, By, Bz, np.sqrt(Bx**2 + By**2 + Bz**2)
+        factor = (mu_0 * current) / (4 * np.pi * (r_mag**3))
+
+        Bx += cx * factor
+        By += cy * factor
+        Bz += cz * factor
+
+    B_mag = np.sqrt(Bx**2 + By**2 + Bz**2)
+
+    return X, Y, Bx, By, Bz, B_mag
 
 
 # =========================================================================
 # 2. Geometry Generator
 # =========================================================================
 class AdvancedCoilSimulator:
-    def generate_geometry(self, coil_t, radius, axlen, bxlen,
-                          r_dist, p_dist, ncoil, curv_sim, shap_sim):
+
+    def generate_geometry(self, coil_t, radius, axlen, bxlen, r_dist, p_dist, ncoil, curv_sim, shap_sim):
+
         if coil_t == cg.coil_util._coil_type_circle:
-            return cg.CircleCoil(r=radius, r_dist=r_dist, p_dist=p_dist, ncoil=ncoil)
+            coil = cg.CircleCoil(r=radius, r_dist=r_dist, p_dist=p_dist, ncoil=ncoil)
+
         elif coil_t == cg.coil_util._coil_type_ellipse:
-            return cg.EllipseCoil(axlen=axlen, bxlen=bxlen,
-                                  r_dist=r_dist, p_dist=p_dist, ncoil=ncoil)
+            coil = cg.EllipseCoil(axlen=axlen, bxlen=bxlen, r_dist=r_dist, p_dist=p_dist, ncoil=ncoil)
+
         elif coil_t == cg.coil_util._coil_type_ellipse_curvature:
-            return cg.EllipseCoilCurvature(axlen=axlen, bxlen=bxlen,
-                                           r_dist=r_dist, p_dist=p_dist,
-                                           ncoil=ncoil, target=curv_sim)
+            coil = cg.EllipseCoilCurvature(
+                axlen=axlen, bxlen=bxlen,
+                r_dist=r_dist, p_dist=p_dist,
+                ncoil=ncoil, target=curv_sim
+            )
+
         elif coil_t == cg.coil_util._coil_type_ellipse_shape:
-            return cg.EllipseCoilShape(axlen=axlen, bxlen=bxlen,
-                                       r_dist=r_dist, p_dist=p_dist,
-                                       ncoil=ncoil, target=shap_sim)
+            coil = cg.EllipseCoilShape(
+                axlen=axlen, bxlen=bxlen,
+                r_dist=r_dist, p_dist=p_dist,
+                ncoil=ncoil, target=shap_sim
+            )
+
+        return coil
 
 
 # =========================================================================
 # 3. Streamlit Setup
 # =========================================================================
 st.set_page_config(page_title="Planar Coil EM Analyzer", layout="wide")
+
 st.title("🧲 Planar Coil Design & Electromagnetic Analysis System")
 st.caption("Real-time physics-based feedback for coil geometry optimization")
 st.divider()
 
-tab1, tab2 = st.tabs(["📐 1. Geometry Design", "📊 2. Electromagnetic Analysis"])
+tab1, tab2 = st.tabs([
+    "📐 1. Geometry Design",
+    "📊 2. Electromagnetic Analysis"
+])
+
 
 if "coil_x" not in st.session_state:
     st.session_state["coil_x"] = None
+
 if "coil_y" not in st.session_state:
     st.session_state["coil_y"] = None
 
@@ -112,52 +117,39 @@ if "coil_y" not in st.session_state:
 # 4. TAB 1 - Geometry Design
 # =========================================================================
 with tab1:
+
     st.header("Geometry Parameter Tuning")
+
+    st.write("Design coil geometry using the control panel below.")
 
     main_col_left, main_col_right = st.columns([1, 4])
 
     with main_col_left:
+
         st.subheader("Design Parameters")
 
-        # ── 길이 단위 선택 ──────────────────────────────────
-        sel_len = st.selectbox("Length Unit", list(LENGTH_UNITS.keys()),
-                               index=0, key="len_unit_tab1")
-        lu   = LENGTH_UNITS[sel_len]
-        ls   = lu["symbol"]       # 표시 기호 (예: "cm")
-        sc   = lu["scale"]        # mm → 선택 단위 (표시용)
-        to_mm = 1.0 / sc          # 선택 단위 → mm (내부 계산용)
-
-        # 슬라이더 범위/기본값을 선택 단위로 자동 변환하는 헬퍼
-        def make_slider(label, min_mm, max_mm, def_mm, step_mm, key=None):
-            kwargs = dict(key=key) if key else {}
-            return st.slider(
-                label,
-                float(min_mm * sc),
-                float(max_mm * sc),
-                float(def_mm * sc),
-                float(step_mm * sc),
-                **kwargs
-            )
-
-        coil_type = st.selectbox("Coil Type", [
-            cg.coil_util._coil_type_circle,
-            cg.coil_util._coil_type_ellipse,
-            cg.coil_util._coil_type_ellipse_curvature,
-            cg.coil_util._coil_type_ellipse_shape,
-        ])
+        coil_type = st.selectbox(
+            "Coil Type",
+            [
+                cg.coil_util._coil_type_circle,
+                cg.coil_util._coil_type_ellipse,
+                cg.coil_util._coil_type_ellipse_curvature,
+                cg.coil_util._coil_type_ellipse_shape
+            ]
+        )
 
         ncoil = st.slider("ncoil", 2, 50, 5, 1, key="ncoil_slider")
 
         if coil_type == cg.coil_util._coil_type_circle:
-            radius = make_slider(f"Radius [{ls}]", 0.1, 9.0, 2.0, 0.1) * to_mm
+            radius = st.slider("Radius [mm]", 0.1, 9.0, 2.0, 0.1)
             axlen, bxlen = 0, 0
         else:
             radius = 0
-            axlen  = make_slider(f"Ax Length [{ls}]", 0.1, 9.0, 1.0, 0.1) * to_mm
-            bxlen  = make_slider(f"Bx Length [{ls}]", 0.1, 9.0, 2.0, 0.1) * to_mm
+            axlen = st.slider("Ax Length [mm]", 0.1, 9.0, 1.0, 0.1)
+            bxlen = st.slider("Bx Length [mm]", 0.1, 9.0, 2.0, 0.1)
 
-        r_dist = make_slider(f"r_dist [{ls}]", 0.0, 9.0, 2.5, 0.1) * to_mm  # 실제 길이
-        p_dist = st.slider("p_dist", -1.0, 1.0, 0.4, 0.1)                  # 무차원
+        r_dist = st.slider("r_dist", 0.0, 9.0, 2.5, 0.1)
+        p_dist = st.slider("p_dist", -1.0, 1.0, 0.4, 0.1)
 
         curv_sim = 0.4
         if coil_type == cg.coil_util._coil_type_ellipse_curvature:
@@ -167,88 +159,147 @@ with tab1:
         if coil_type == cg.coil_util._coil_type_ellipse_shape:
             shap_sim = st.slider("Shape Similarity", 0.0, 1.0, 0.4, 0.05)
 
-        coil = AdvancedCoilSimulator().generate_geometry(
-            coil_type, radius, axlen, bxlen,
-            r_dist, p_dist, ncoil, curv_sim, shap_sim
+        sim = AdvancedCoilSimulator()
+
+        coil = sim.generate_geometry(
+            coil_type,
+            radius,
+            axlen,
+            bxlen,
+            r_dist,
+            p_dist,
+            ncoil,
+            curv_sim,
+            shap_sim
         )
 
     with main_col_right:
+
         st.subheader("Geometry Preview")
 
-        ax_len = coil.r if coil_type == cg.coil_util._coil_type_circle else coil.axlen
-        bx_len = coil.r if coil_type == cg.coil_util._coil_type_circle else coil.bxlen
-        pnt    = np.linspace(0, pi2, 50)
+        fig, (ax1, ax2) = plt.subplots(
+            1, 2,
+            figsize=(14, 5),
+            gridspec_kw={'width_ratios': [1, 2]}
+        )
 
-        # 모든 좌표: mm × sc → 선택 단위로 변환
-        def cvt(v): return v * sc
+        if coil_type == cg.coil_util._coil_type_circle:
+            ax_len, bx_len = coil.r, coil.r
+        else:
+            ax_len, bx_len = coil.axlen, coil.bxlen
 
-        # ── 위: Base Unit ─────────────────────────────────────
-        # rcParams로 글자 크기 전역 설정 (Streamlit 렌더링 환경에서도 확실히 적용)
-        plt.rcParams.update({
-            'font.size':       8,
-            'axes.titlesize':  9,
-            'axes.labelsize':  8,
-            'xtick.labelsize': 7,
-            'ytick.labelsize': 7,
-        })
-        fig1, ax1 = plt.subplots(figsize=(4, 4))
+        pnt = np.linspace(0, pi2, 50)
 
-        ax1.plot(cvt(coil.c1x + ax_len * np.cos(pnt)),
-                 cvt(coil.c1y + bx_len * np.sin(pnt)), 'r-')
-        ax1.plot(cvt(coil.c2x + ax_len * np.cos(pnt)),
-                 cvt(coil.c2y + bx_len * np.sin(pnt)), 'g-')
-        ax1.plot(cvt(coil.P[2] + coil.r_fillet * np.cos(pnt)),
-                 cvt(coil.P[3] + coil.r_fillet * np.sin(pnt)), 'b-')
+        x1 = coil.c1x + ax_len * np.cos(pnt)
+        y1 = coil.c1y + bx_len * np.sin(pnt)
 
-        if coil_type in (cg.coil_util._coil_type_ellipse_curvature,
-                         cg.coil_util._coil_type_ellipse_shape):
-            ax1.plot(cvt(coil.xc_s + coil.a_s * np.cos(pnt)),
-                     cvt(coil.yc_s + coil.b_s * np.sin(pnt)), 'm-', alpha=0.8)
-            ax1.plot(cvt(coil.xc_s), cvt(coil.yc_s),
-                     marker='o', color='m', markersize=4)
+        x2 = coil.c2x + ax_len * np.cos(pnt)
+        y2 = coil.c2y + bx_len * np.sin(pnt)
 
-        ax1.annotate('',
-            xy    =(cvt(coil.P1[0]), cvt(coil.P1[1])),
-            xytext=(cvt(coil.P1[2]), cvt(coil.P1[3])),
-            arrowprops=dict(arrowstyle="<-", color="purple",
-                            lw=1.8, shrinkA=0, shrinkB=0))
-        ax1.annotate('',
-            xy    =(cvt(coil.P2[0]), cvt(coil.P2[1])),
-            xytext=(cvt(coil.P2[2]), cvt(coil.P2[3])),
-            arrowprops=dict(arrowstyle="<-", color="purple",
-                            lw=1.8, shrinkA=0, shrinkB=0))
+        x3 = coil.P[2] + coil.r_fillet * np.cos(pnt)
+        y3 = coil.P[3] + coil.r_fillet * np.sin(pnt)
 
+        ax1.plot(x1, y1, 'r-')
+        ax1.plot(x2, y2, 'g-')
+        ax1.plot(x3, y3, 'b-')
+
+        # =========================================================
+        # Transition ellipse (curvature/shape models only)
+        # =========================================================
+        if coil_type == cg.coil_util._coil_type_ellipse_curvature or \
+        coil_type == cg.coil_util._coil_type_ellipse_shape:
+        
+            x4 = coil.xc_s + coil.a_s * np.cos(pnt)
+            y4 = coil.yc_s + coil.b_s * np.sin(pnt)
+        
+            ax1.plot(x4, y4, 'm-', alpha=0.8)
+            ax1.plot(coil.xc_s, coil.yc_s, marker='o', color='m', markersize=4)
+        
+        # =========================================================
+        # Transition arrows (IMPORTANT - previously missing)
+        # =========================================================
+        ax1.annotate(
+            '',
+            xy=(coil.P1[0], coil.P1[1]),
+            xytext=(coil.P1[2], coil.P1[3]),
+            arrowprops=dict(
+                arrowstyle="<-",
+                color="purple",
+                lw=1.8,
+                shrinkA=0, shrinkB=0
+            )
+        )
+        
+        ax1.annotate(
+            '',
+            xy=(coil.P2[0], coil.P2[1]),
+            xytext=(coil.P2[2], coil.P2[3]),
+            arrowprops=dict(
+                arrowstyle="<-",
+                color="purple",
+                lw=1.8,
+                shrinkA=0, shrinkB=0
+            )
+        )
         ax1.set_title("Base Unit")
-        ax1.set_xlabel(f"X ({ls})")
-        ax1.set_ylabel(f"Y ({ls})")
         ax1.grid(True)
         ax1.set_aspect('equal')
-        #st.pyplot(fig1, use_container_width=False)
-        st.pyplot(fig1, width="content")
-        plt.rcParams.update(plt.rcParamsDefault)  # 전역 설정 복원
 
-        # ── 아래: Full Coil ───────────────────────────────────
         cc = coil.create_geom()
-        xx_mm, yy_mm = cc.x, cc.y   # 항상 mm로 저장
+        xx, yy = cc.x, cc.y
 
-        st.session_state["coil_x"] = xx_mm
-        st.session_state["coil_y"] = yy_mm
+        st.session_state["coil_x"] = xx
+        st.session_state["coil_y"] = yy
 
-        fig2, ax2 = plt.subplots(figsize=(10, 4))
-        ax2.plot(cvt(xx_mm), cvt(yy_mm), 'r-')
+        ax2.plot(xx, yy, 'r-')
         ax2.set_title(f"Full Coil (Turns: {ncoil})")
-        ax2.set_xlabel(f"X ({ls})")
-        ax2.set_ylabel(f"Y ({ls})")
         ax2.grid(True)
         ax2.set_aspect('equal')
-        #st.pyplot(fig2, use_container_width=True)
-        st.pyplot(fig2, width="stretch")
 
+        st.pyplot(fig, width="stretch")
+
+        st.pyplot(fig, width="stretch")
+
+        # ── 형상 다운로드 ─────────────────────────────
+        st.subheader("Download Geometry")
+        dl_col1, dl_col2, dl_col3 = st.columns(3)
+
+        with dl_col1:
+            svg_buf = io.BytesIO()
+            cg.save_svg(coil, svg_buf)
+            st.download_button(
+                "⬇️ SVG",
+                svg_buf,
+                file_name="coil_geometry.svg",
+                mime="image/svg+xml"
+            )
+
+        with dl_col2:
+            pdf_buf = io.BytesIO()
+            cg.save_pdf(coil, pdf_buf)
+            st.download_button(
+                "⬇️ PDF",
+                pdf_buf,
+                file_name="coil_geometry.pdf",
+                mime="application/pdf"
+            )
+
+        with dl_col3:
+            pptx_buf = io.BytesIO()
+            cg.save_ppt(coil, pptx_buf)
+            st.download_button(
+                "⬇️ PPTX",
+                pptx_buf,
+                file_name="coil_geometry.pptx",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            )
+        
 
 # =========================================================================
 # 5. TAB 2 - Electromagnetic Analysis
 # =========================================================================
 with tab2:
+
     st.header("Electromagnetic Field Mapping & Design Validation")
 
     xx_input = st.session_state["coil_x"]
@@ -257,36 +308,17 @@ with tab2:
     if xx_input is None or yy_input is None:
         st.warning("No coil geometry generated yet. Please go to Geometry Design tab.")
     else:
-        st.markdown("### Display Units")
-
-        u_col1, u_col2 = st.columns(2)
-
-        with u_col1:
-            sel_len2  = st.selectbox("Length Display Unit", list(LENGTH_UNITS.keys()),
-                                     index=0, key="len_unit_tab2")
-            lu2  = LENGTH_UNITS[sel_len2]
-            ls2  = lu2["symbol"]
-            sc2  = lu2["scale"]        # mm → 선택 단위
-            to_mm2 = 1.0 / sc2         # 선택 단위 → mm
-
-        with u_col2:
-            sel_b    = st.selectbox("B-field Display Unit", list(BFIELD_UNITS.keys()), index=0)
-            b_scale  = BFIELD_UNITS[sel_b]
-            b_symbol = sel_b.split()[0]
 
         st.markdown("### Simulation Conditions")
+
         c1, c2, c3 = st.columns(3)
 
         with c1:
             current = st.number_input("Current [A]", value=2.0, step=0.5)
+
         with c2:
-            # z_height 슬라이더도 선택 단위 적용 (0.05mm ~ 2mm 범위를 변환)
-            z_height_u = st.slider(
-                f"Observation Height [{ls2}]",
-                float(0.05 * sc2), float(2.0 * sc2),
-                float(0.1  * sc2), float(0.05 * sc2)
-            )
-            z_height_mm = z_height_u * to_mm2   # → mm (내부 계산용)
+            z_height = st.slider("Observation Height [mm]", 0.05, 2.0, 0.1, 0.05)
+
         with c3:
             grid_res = st.slider("Mesh Resolution", 40, 150, 60, 5)
 
@@ -294,66 +326,88 @@ with tab2:
 
         with st.spinner("Solving Biot–Savart equation..."):
             X, Y, Bx, By, Bz, B_mag = analyze_magnetic_field(
-                xx_input, yy_input, current, grid_res, z_height_mm
+                xx_input,
+                yy_input,
+                current,
+                grid_res,
+                z_height
             )
 
         st.subheader("Magnetic Field Visualization")
 
         fig_main, ax_main = plt.subplots(figsize=(13, 6.5))
 
-        # 플롯 좌표: mm → 선택 단위
-        X_d = X * sc2
-        Y_d = Y * sc2
+        contour = ax_main.contourf(
+            X, Y,
+            B_mag * 1e6,
+            levels=45,
+            cmap='inferno'
+        )
 
-        contour = ax_main.contourf(X_d, Y_d, B_mag * b_scale, levels=45, cmap='inferno')
-        cbar = fig_main.colorbar(contour, ax=ax_main, orientation='horizontal')
-        cbar.set_label(f"B-field magnitude [{b_symbol}]")
+        fig_main.colorbar(contour, ax=ax_main, orientation='horizontal')
 
-        ax_main.streamplot(X_d, Y_d, Bx, By, linewidth=0.8, density=1.1)
-        ax_main.plot(xx_input * sc2, yy_input * sc2, color='green', linewidth=1.8)
+        ax_main.streamplot(X, Y, Bx, By, linewidth=0.8, density=1.1)
 
-        ax_main.set_xlabel(f"X ({ls2})")
-        ax_main.set_ylabel(f"Y ({ls2})")
+        ax_main.plot(xx_input, yy_input, color='green', linewidth=1.8)
+
+        ax_main.set_xlabel("X (mm)")
+        ax_main.set_ylabel("Y (mm)")
         ax_main.set_aspect('equal')
         ax_main.grid(True, linestyle=':', alpha=0.3)
-        fig_main.subplots_adjust(left=0.06, right=0.98, top=0.95, bottom=0.22)
-        #st.pyplot(fig_main, use_container_width=True)
-        st.pyplot(fig_main, width="stretch")
+
+        fig_main.subplots_adjust(
+            left=0.06,
+            right=0.98,
+            top=0.95,
+            bottom=0.22
+        )
+
+        st.pyplot(fig_main, use_container_width=True)
 
         st.divider()
 
         metric_col, export_col = st.columns(2)
 
         with metric_col:
+
             st.subheader("Design Metrics")
 
-            coil_w = (np.max(xx_input) - np.min(xx_input)) * sc2
-            coil_h = (np.max(yy_input) - np.min(yy_input)) * sc2
-            ar     = coil_h / coil_w if coil_w > 0 else 0
-            wlen   = np.sum(np.sqrt(np.diff(xx_input)**2 + np.diff(yy_input)**2)) * sc2
+            out_rad = np.max(np.sqrt(xx_input**2 + yy_input**2))
+            in_rad = np.min(np.sqrt(xx_input**2 + yy_input**2))
 
-            st.metric("Coil Width",          f"{coil_w:.4g} {ls2}")
-            st.metric("Coil Height",         f"{coil_h:.4g} {ls2}")
-            st.metric("Aspect Ratio (H/W)",  f"{ar:.3f}")
-            st.metric("Wire Length",         f"{wlen:.4g} {ls2}")
-            st.metric("Peak B-field",        f"{np.max(B_mag)  * b_scale:.3g} {b_symbol}")
-            st.metric("Mean B-field",        f"{np.mean(B_mag) * b_scale:.3g} {b_symbol}")
+            aspect_ratio = in_rad / out_rad if out_rad > 0 else 0
+            total_length = np.sum(np.sqrt(np.diff(xx_input)**2 + np.diff(yy_input)**2))
+            max_b_field = np.max(B_mag) * 1e6
+
+            st.metric("Outer Radius", f"{out_rad:.2f} mm")
+            st.metric("Aspect Ratio", f"{aspect_ratio:.2f}")
+            st.metric("Wire Length", f"{total_length:.1f} mm")
+            st.metric("Peak B-field", f"{max_b_field:.1f} µT")
 
         with export_col:
+
             st.subheader("Export")
 
-            # CSV는 항상 mm 기준 저장 (원본 보존)
-            csv_buf = io.StringIO()
-            writer  = csv.writer(csv_buf)
+            csv_buffer = io.StringIO()
+            writer = csv.writer(csv_buffer)
             writer.writerow(["X_mm", "Y_mm"])
-            for xv, yv in zip(xx_input, yy_input):
-                writer.writerow([xv, yv])
 
-            st.download_button("Download CSV (mm)",
-                               csv_buf.getvalue().encode("utf-8"),
-                               file_name="coil_geometry.csv", mime="text/csv")
+            for x_val, y_val in zip(xx_input, yy_input):
+                writer.writerow([x_val, y_val])
 
-            img_buf = io.BytesIO()
-            fig_main.savefig(img_buf, format="png", dpi=150, bbox_inches="tight")
-            st.download_button("Download PNG", img_buf.getvalue(),
-                               file_name="field_map.png", mime="image/png")
+            st.download_button(
+                "Download CSV",
+                csv_buffer.getvalue().encode("utf-8"),
+                file_name="coil_geometry.csv",
+                mime="text/csv"
+            )
+
+            img_buffer = io.BytesIO()
+            fig_main.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
+
+            st.download_button(
+                "Download PNG",
+                img_buffer.getvalue(),
+                file_name="field_map.png",
+                mime="image/png"
+            )
